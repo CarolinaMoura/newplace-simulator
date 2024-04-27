@@ -12,14 +12,28 @@ class Location:
         return geodesic((self.lat, self.lon), (other.lat, other.lon)).kilometers*1000
     
 class Station:
-    def __init__(self, number, name, lat, lon, status, municipality, total_docks):
+    def __init__(self, id, name, lat, lon, total_docks):
         self.id = id
-        self.number = number
         self.name = name
         self.location = Location(lat, lon)
-        self.status = status
-        self.municipality = municipality
         self.total_docks = total_docks
+        self.restart()
+
+    def restart(self):
+        self.available_docks = self.total_docks
+
+    def undock(self) -> bool:
+        if self.available_docks > 0:
+            self.available_docks -= 1
+            return True
+        return False
+    
+    def dock(self) -> bool:
+        if self.available_docks < self.total_docks:
+            self.available_docks += 1
+            return True
+        return False
+
 
     def distance(self, other) -> float:
         """
@@ -28,7 +42,7 @@ class Station:
         return self.location.distance(other.location)
 
     def __str__(self):
-        return f"Station {self.number}:\n\tname: {self.name}\n\tlocation: ({self.location.lat}, {self.location.lon})\n\tstatus: {self.status}\n\tcity: {self.municipality}\n\t# docks: {self.total_docks}"
+        return f"Station {self.id}:\n\tname: {self.name}\n\tlocation: ({self.location.lat}, {self.location.lon})\n\t# docks: {self.total_docks}"
 
 class Dfs():
     def __init__(self, graph):
