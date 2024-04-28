@@ -1,1 +1,0 @@
-# newplace-simulator
