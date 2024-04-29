@@ -32,8 +32,10 @@ def get_rides(file_path: str) -> list[Ride]:
 
     rides = []
 
+    print(len(df))
+
     for ix, row in df.iterrows():
-        if len(rides) > 5:
+        if len(rides) > 100000:
             break
         ended = convert_string_to_datetime_object(row['ended_at'])
         begun = convert_string_to_datetime_object(row['started_at'])

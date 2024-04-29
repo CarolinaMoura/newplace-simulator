@@ -12,11 +12,12 @@ class Location:
         return geodesic((self.lat, self.lon), (other.lat, other.lon)).kilometers*1000
     
 class Station:
-    def __init__(self, id, name, lat, lon, total_docks):
+    def __init__(self, id, name, lat, lon, total_docks, short_name):
         self.id = id
         self.name = name
         self.location = Location(lat, lon)
         self.total_docks = total_docks
+        self.short_name = short_name
         self.restart()
 
     def restart(self):
