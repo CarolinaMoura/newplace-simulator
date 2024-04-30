@@ -10,10 +10,10 @@ class CCF():
         Returns the amount of time it took to
         load the information to the CCF.
         """
-        start_time = env.now()
+        start_time = env.now
         with self.ccf.request() as req:
             latency = 0
             if type == 'app':
                 latency = random.uniform(0.05, 0.2)  # Random between 50ms and 200ms
             yield env.timeout(latency)
-            return start_time-env.now()
+            return start_time-env.now
