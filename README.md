@@ -10,3 +10,8 @@ python -m venv .env
 source .env/bin/activate
 pip install -r requirements.txt
 ```
+
+And run the simulation with the following command:
+```
+python3 newplace.py
+```
