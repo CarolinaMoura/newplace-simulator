@@ -17,29 +17,27 @@ class Ride():
         return f"Ride {self.id}:\n\tduration: {self.duration} s\n\tstarted at: {self.started_at}\n\tended at: {self.ended_at}\n\tstart station: {self.start_station_id}\n\tend station: {self.end_station_id}\n\tmember/casual: {self.member_casual}"
     
 
-def get_rides(file_path: str) -> list[Ride]:
+def get_rides(file_paths: list[str]) -> list[Ride]:
     """
     Reads the data from the file and returns a list of Ride objects
     """
 
-    # Read the data
-    df = pd.read_csv(file_path, low_memory=False)
-
-    def convert_string_to_datetime_object(str):
-        date_format = "%Y-%m-%d %H:%M:%S"
-        datetime_object = datetime.strptime(str, date_format)
-        return datetime_object
-
     rides = []
+    for file_path in file_paths:
+        # Read the data
+        df = pd.read_csv(file_path, low_memory=False)
 
-    for ix, row in df.iterrows():
-        if len(rides) > 10000:
-            break
-        ended = convert_string_to_datetime_object(row['ended_at'])
-        begun = convert_string_to_datetime_object(row['started_at'])
+        def convert_string_to_datetime_object(str):
+            date_format = "%Y-%m-%d %H:%M:%S"
+            datetime_object = datetime.strptime(str, date_format)
+            return datetime_object
 
-        ride = Ride(row['ride_id'], begun, ended, row['start_station_id'], \
-                    row['end_station_id'], row['member_casual'])
-        rides.append(ride)
+        for ix, row in df.iterrows():
+            ended = convert_string_to_datetime_object(row['ended_at'])
+            begun = convert_string_to_datetime_object(row['started_at'])
 
-    return rides
+            ride = Ride(row['ride_id'], begun, ended, row['start_station_id'], \
+                        row['end_station_id'], row['member_casual'])
+            rides.append(ride)
+
+        return rides

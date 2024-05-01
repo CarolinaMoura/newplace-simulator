@@ -1,18 +1,43 @@
 import simpy
 import random
+import matplotlib.pyplot as plt
 from get_rides import get_rides
 from get_stations import Station, get_stations
 from ccf import CCF
-from utils import filter_rides, get_uniform_range
+from utils import filter_rides, get_closest_station, get_uniform_range
 from wait_times import WaitTimes
+import json
 
-rides = get_rides("rides/202401-citibike-tripdata_1.csv")
+##########################  Load stations  ##########################
 stations = get_stations("stations/station_information.json")
-
 stations_name_to_obj = {station.short_name: station for station in stations}
+#####################################################################
 
-# Filter rides
+
+
+##########################  Load rides  ##########################
+filename_array = [f"rides/7_July/202307-citibike-tripdata_{i}.csv" for i in range(1,5)]
+# filename_array = [f"rides/1_January/202301-citibike-tripdata_{i}.csv" for i in range(1,3)]
+                #   "rides/2_February/202302-citibike-tripdata_1.csv"]
+rides = get_rides(filename_array)
+# because some of the rides contain stations not
+# in our database, we have to filter them
 rides = filter_rides(rides, stations)
+##################################################################
+
+
+
+##########################  Load graph  ##########################
+with open("adj.json", "r") as f:
+    adj = json.load(f)
+for station in stations:
+    if station.short_name not in adj:
+        adj[station.short_name] = {}
+##################################################################
+
+
+day_to_video_wait = {}
+
 
 class StationContainer():
     def __init__(self, env, station):
@@ -24,7 +49,7 @@ class StationContainer():
         self.video_bandwidth = 100 # MB/s
 
 def upload_video(env, station: Station, member_casual: str):
-    prob = 0.05 if member_casual == "member" else 0.3
+    prob = 1
 
     if random.uniform(0,1) > prob:
         return False
@@ -47,16 +72,18 @@ def dock_bike(env, ride, diff_station=None):
                                                     "dock", get_uniform_range(5,900))
     
     if not was_able:
-        for station in stations:
-            if station.resource.docks.level > 4:
-                diff_station = station
+        dist, diff_station = get_closest_station(adj, end, stations, 0, 1)
+        yield env.timeout(dist)
         yield from dock_bike(env, ride, diff_station)        
         return
 
     start = env.now
     response = yield from upload_video(env, end, ride.member_casual)
     if response:
-        print(f"Waited {(env.now - start)/60} minutes to get my video uploaded")
+        weekday = ride.started_at.weekday()
+        arr = day_to_video_wait.get(weekday, [])
+        arr.append((env.now - start)/60)
+        day_to_video_wait[weekday] = arr
     yield end.resource.bikes.put(1)
 
 def undock_bike(env, ride, diff_station=None):
@@ -68,10 +95,8 @@ def undock_bike(env, ride, diff_station=None):
                                                     "bike", get_uniform_range(5, 900))
     
     if not was_able:
-        random.shuffle(stations)
-        for station in stations:
-            if station.resource.bikes.level > 4:
-                diff_station = station
+        dist,diff_station = get_closest_station(adj, start,stations, 1, 0)
+        yield env.timeout(dist)
         yield from undock_bike(env, ride, diff_station)
         return
     
@@ -99,11 +124,6 @@ for station in stations:
 
 rides.sort(key=lambda x: x.started_at.timestamp())
 
-for ix,ride in enumerate(rides[1:]):
-    if ride.started_at.day != rides[0].started_at.day:
-        rides = rides[:ix+1]
-        break
-
 for ride in rides:
     month.process(start_ride(month, ride))
 
@@ -118,3 +138,20 @@ for station in stations:
     count_bikes_afterwards += station.resource.bikes.level
 print(count_bikes_before, count_bikes_afterwards)
 print(wait_times)
+
+enum_days_of_the_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+x = day_to_video_wait[0]
+y = day_to_video_wait[6]
+
+print(max(x), max(y))
+
+bins = 30
+plt.hist(x, bins, alpha=0.5, label='Monday', edgecolor='black')
+plt.hist(y, bins, alpha=0.5, label='Sunday',edgecolor='black')
+plt.legend(loc='upper right')
+plt.xlabel('Wait time (minutes)')
+plt.ylabel('Frequency (# people)')
+plt.title(f'Wait time for video upload on Monday against Sunday (July, 2023)')
+# plt.savefig(f"july.png")
+plt.clf()
