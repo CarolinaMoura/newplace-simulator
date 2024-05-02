@@ -16,8 +16,8 @@ stations_name_to_obj = {station.short_name: station for station in stations}
 
 
 ##########################  Load rides  ##########################
-filename_array = [f"rides/7_July/202307-citibike-tripdata_{i}.csv" for i in range(1,5)]
-# filename_array = [f"rides/1_January/202301-citibike-tripdata_{i}.csv" for i in range(1,3)]
+# filename_array = [f"rides/7_July/202307-citibike-tripdata_{i}.csv" for i in range(1,5)]
+filename_array = [f"rides/1_January/202301-citibike-tripdata_{i}.csv" for i in range(1,3)]
                 #   "rides/2_February/202302-citibike-tripdata_1.csv"]
 rides = get_rides(filename_array)
 # because some of the rides contain stations not
@@ -48,23 +48,41 @@ class StationContainer():
         self.video_queue = simpy.Resource(env, capacity=1)
         self.video_bandwidth = 100 # MB/s
 
-def upload_video(env, station: Station, member_casual: str):
-    prob = 1
-
-    if random.uniform(0,1) > prob:
+def upload_video(env, station: Station, data_remaining):
+    if data_remaining == 0:
         return False
-    
-    duration_of_video = get_uniform_range(180, 1800)
-    accident_video = get_uniform_range(60, 900) if get_uniform_range(0, 1) > 0.05 else 0
-
-    with station.resource.video_queue.request() as request:
-        time_required = duration_of_video*45 + accident_video*22.5
-        # print(f"Took me {(time_required/station.resource.video_bandwidth)/60} to upload the video")
-        yield env.timeout(time_required/station.resource.video_bandwidth)
-    
+    request = station.resource.video_queue.request()
+    yield request
+    yield env.timeout(data_remaining/100)
+    station.resource.video_queue.release(request)
     return True
 
-def dock_bike(env, ride, diff_station=None):
+def maybe_record(env,ride):
+    """
+    Returns amount of data remaining.
+    """
+    prob = 0.1 if ride.member_casual == "casual" else 0.3
+
+    if random.uniform(0,1) > prob:
+        return (None, None)
+    
+    duration_of_video = get_uniform_range(180, min(1800, ride.duration))
+    accident_video = get_uniform_range(60, 900) if get_uniform_range(0, 1) > 0.05 else 0
+    amount_mb = duration_of_video*45 + accident_video*22.5
+
+    reply = ccf.open_connection(env, amount_mb, 1010)
+    return reply
+
+def maybe_close(reply):
+    if reply[0] is None:
+        return 0
+    try:
+        return ccf.close_connection(reply[0], reply[1])
+    except:
+        return 0
+
+
+def dock_bike(env, ride, diff_station=None, data_remaining=0):
     end = stations_name_to_obj[ride.end_station_id] if diff_station is None else diff_station
     
     put_bike = lambda: end.resource.docks.get(1)
@@ -74,11 +92,11 @@ def dock_bike(env, ride, diff_station=None):
     if not was_able:
         dist, diff_station = get_closest_station(adj, end, stations, 0, 1)
         yield env.timeout(dist)
-        yield from dock_bike(env, ride, diff_station)        
+        yield from dock_bike(env, ride, diff_station, data_remaining)        
         return
 
     start = env.now
-    response = yield from upload_video(env, end, ride.member_casual)
+    response = yield from upload_video(env, end, data_remaining)
     if response:
         weekday = ride.started_at.weekday()
         arr = day_to_video_wait.get(weekday, [])
@@ -105,8 +123,10 @@ def undock_bike(env, ride, diff_station=None):
 def start_ride(env, ride):
     yield env.timeout(ride.started_at.timestamp())
     yield from undock_bike(env, ride)
+    reply = maybe_record(env,ride)
     yield env.timeout(ride.duration)
-    yield from dock_bike(env, ride)
+    data_remaining = maybe_close(reply)
+    yield from dock_bike(env, ride, data_remaining=data_remaining)
 
 month = simpy.Environment()
 wait_times = WaitTimes()
@@ -152,6 +172,6 @@ plt.hist(y, bins, alpha=0.5, label='Sunday',edgecolor='black')
 plt.legend(loc='upper right')
 plt.xlabel('Wait time (minutes)')
 plt.ylabel('Frequency (# people)')
-plt.title(f'Wait time for video upload on Monday against Sunday (July, 2023)')
-# plt.savefig(f"july.png")
+plt.title(f'Wait time for video upload on Monday against Sunday (January, 2023)')
+plt.savefig(f"dummy.png")
 plt.clf()
