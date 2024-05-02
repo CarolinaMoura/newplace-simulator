@@ -65,13 +65,13 @@ def maybe_record(env,ride):
 
     if random.uniform(0,1) > prob:
         return (None, None)
-    
+                
     duration_of_video = get_uniform_range(180, min(1800, ride.duration))
     accident_video = get_uniform_range(60, 900) if get_uniform_range(0, 1) > 0.05 else 0
     amount_mb = duration_of_video*45 + accident_video*22.5
 
-    reply = ccf.open_connection(env, amount_mb, 1010)
-    return reply
+    return ccf.open_connection(env, amount_mb, 126.25)
+    # return max(0,amount_mb-ride.duration*126.25)
 
 def maybe_close(reply):
     if reply[0] is None:
@@ -173,5 +173,5 @@ plt.legend(loc='upper right')
 plt.xlabel('Wait time (minutes)')
 plt.ylabel('Frequency (# people)')
 plt.title(f'Wait time for video upload on Monday against Sunday (January, 2023)')
-plt.savefig(f"dummy.png")
+plt.savefig(f"january_infinite_connections.png")
 plt.clf()
