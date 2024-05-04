@@ -49,8 +49,6 @@ class StationContainer():
         self.video_bandwidth = 100 # MB/s
 
 def upload_video(env, station: Station, data_remaining):
-    if data_remaining == 0:
-        return False
     request = station.resource.video_queue.request()
     yield request
     yield env.timeout(data_remaining/100)
@@ -95,13 +93,14 @@ def dock_bike(env, ride, diff_station=None, data_remaining=0):
         yield from dock_bike(env, ride, diff_station, data_remaining)        
         return
 
-    start = env.now
-    response = yield from upload_video(env, end, data_remaining)
-    if response:
-        weekday = ride.started_at.weekday()
-        arr = day_to_video_wait.get(weekday, [])
-        arr.append((env.now - start)/60)
-        day_to_video_wait[weekday] = arr
+    if data_remaining is not None:
+        start = env.now
+        response = yield from upload_video(env, end, data_remaining)
+        if response:
+            weekday = ride.started_at.weekday()
+            arr = day_to_video_wait.get(weekday, [])
+            arr.append((env.now - start)/60)
+            day_to_video_wait[weekday] = arr
     yield end.resource.bikes.put(1)
 
 def undock_bike(env, ride, diff_station=None):
@@ -126,7 +125,7 @@ def start_ride(env, ride):
     reply = maybe_record(env,ride)
     yield env.timeout(ride.duration)
     data_remaining = maybe_close(reply)
-    yield from dock_bike(env, ride, data_remaining=data_remaining)
+    yield from dock_bike(env, ride, data_remaining=data_remaining if reply[0] is not None else None)
 
 month = simpy.Environment()
 wait_times = WaitTimes()
@@ -173,5 +172,5 @@ plt.legend(loc='upper right')
 plt.xlabel('Wait time (minutes)')
 plt.ylabel('Frequency (# people)')
 plt.title(f'Wait time for video upload on Monday against Sunday (January, 2023)')
-plt.savefig(f"january_infinite_connections.png")
+plt.savefig(f"dummy.png")
 plt.clf()

@@ -20,15 +20,16 @@ class CCF():
         deficit = 0
 
         while v.data_remaining > 0:
-            with self.server.request() as req:
-                try:
-                    yield req
-                    data_to_process = min(v.data_remaining, quantum + deficit)  # Include deficit
-                    yield env.timeout(data_to_process / bandwidth)
-                except simpy.Interrupt:
-                    return
-                v.data_remaining -= data_to_process
-                deficit = max(0, quantum - data_to_process)  # Update deficit
+            req = self.server.request()
+            try:
+                yield req
+                data_to_process = min(v.data_remaining, quantum + deficit)  # Include deficit
+                yield env.timeout(data_to_process / bandwidth)
+            except simpy.Interrupt:
+                return
+            v.data_remaining -= data_to_process
+            deficit = max(0, quantum - data_to_process)  # Update deficit
+            self.server.release(req)
 
     def open_connection(self,env, data_amount, bandwidth, quantum=100):
         """
