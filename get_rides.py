@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Any 
 import pandas as pd
+import random
 
 class Ride():
     def __init__(self, id: str, started_at: datetime, ended_at: datetime, \
@@ -23,6 +24,7 @@ def get_rides(file_paths: list[str]) -> list[Ride]:
     """
 
     rides = []
+    days = {}
     for file_path in file_paths:
         # Read the data
         df = pd.read_csv(file_path, low_memory=False)
@@ -38,6 +40,10 @@ def get_rides(file_paths: list[str]) -> list[Ride]:
 
             ride = Ride(row['ride_id'], begun, ended, row['start_station_id'], \
                         row['end_station_id'], row['member_casual'])
+            day = ride.started_at.day
+            if day not in days:
+                days[day] = []
+            days[day].append(ride)
             rides.append(ride)
 
-        return rides
+    return rides

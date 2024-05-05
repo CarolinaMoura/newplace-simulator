@@ -101,6 +101,7 @@ def dock_bike(env, ride, diff_station=None):
     response = upload_video(ride)
     yield env.timeout(response/600)
     yield end.resource.bikes.put(1)
+    ccf.remove_connection(env)
 
     if response == 0:
         return
@@ -139,6 +140,7 @@ def start_ride(env, ride):
         'waiting_for_dock': 0,
     }
     yield from undock_bike(env, ride)
+    ccf.add_connection(env)
     alias['waiting_for_bike'] = (env.now - alias['waiting_for_bike'])/60
     # reply = maybe_record(env,ride)
     yield env.timeout(ride.duration)
@@ -165,6 +167,7 @@ for station in stations:
 rides.sort(key=lambda x: x.started_at.timestamp())
 
 for ride in rides:
+    ccf.add_connection(month)
     month.process(start_ride(month, ride))
 
 month.run()
@@ -186,7 +189,8 @@ print(wait_times)
 
 # print(max(x), max(y))
 
-json.dump(ride_to_actual_duration, open("july_a_third.json", "w"))
+json.dump(ccf.arr, open("ccf_connections.json", "w"))
+exit(0)
 
 x = [ v['waiting_for_bike'] for v in ride_to_actual_duration.values()]
 y = [ v['waiting_for_dock'] for v in ride_to_actual_duration.values()]

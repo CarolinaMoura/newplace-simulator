@@ -12,6 +12,16 @@ class Video():
 class CCF():
     def __init__(self, env):
         self.server = simpy.Resource(env, capacity=5000)
+        self.trying_to_connect = 0
+        self.arr = []
+
+    def add_connection(self,env):
+        self.arr.append((env.now, self.trying_to_connect))
+        self.trying_to_connect += 1
+
+    def remove_connection(self,env):
+        self.arr.append((env.now, self.trying_to_connect))
+        self.trying_to_connect -= 1
     
     def consuming_data(self, env, v: Video, bandwidth, quantum=100):
         """
